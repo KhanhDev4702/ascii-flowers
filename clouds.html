@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ASCII Flowers — Flowers & Cloud Sea</title>
+<style>
+html,body{margin:0;height:100%;background:#000;color:#e5d8ad;overflow:hidden;font-family:monospace}
+canvas{display:block;width:100vw;height:100dvh;cursor:pointer}
+nav{position:fixed;bottom:max(16px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);display:flex;gap:6px;white-space:nowrap;max-width:calc(100vw - 16px)}
+button{font:12px monospace;color:#ead6a0;background:#15130de8;border:1px solid #4c4127;border-radius:20px;padding:10px 10px;cursor:pointer}
+button:hover,button:focus-visible{background:#33290f;outline:1px solid #e8be5b}
+header{position:fixed;top:20px;left:22px;pointer-events:none;font-size:10px;letter-spacing:3px;color:#a98f55}
+@media(max-width:360px){button{font-size:10px;padding:9px 7px}nav{gap:4px}}
+</style></head><body>
+<header>ASCII / CLOUD SEA</header>
+<canvas id="screen" aria-label="Animated ASCII bouquet of blooming flowers"></canvas>
+<nav aria-label="Flower controls"><button id="kind" title="Switch scene (F)">Sunflowers</button><button id="color" title="Change colors (P)">Colors</button><button id="replay" title="Replay (R or Space)">Replay</button><button id="stars" title="Toggle falling stars (S)" aria-pressed="true">Stars: on</button></nav>
+<script>window.DEFAULT_SCENE="clouds";</script>
+<script src="bouquet.js"></script></body></html>
