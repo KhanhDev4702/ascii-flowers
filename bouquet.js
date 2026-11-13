@@ -38,9 +38,9 @@
     {petal:'#c94b53', edge:'#ff9b86'},
     {petal:'#c7a0ec', edge:'#f0dcff'},
   ];
-  const FLOWER_NAMES = {sunflower:'Sunflowers', lily:'Lilies', tulip:'Tulips'};
-  const requestedFlower = new URLSearchParams(location.search).get('flower');
-  let flower = Object.hasOwn(FLOWER_NAMES,requestedFlower) ? requestedFlower : 'sunflower';
+  const FLOWER_NAMES = {sunflower:'Sunflowers', lily:'Lilies', tulip:'Tulips', clouds:'Cloud sea'};
+  const requestedFlower = new URLSearchParams(location.search).get('scene') || new URLSearchParams(location.search).get('flower');
+  let flower = Object.hasOwn(FLOWER_NAMES,requestedFlower) ? requestedFlower : (window.DEFAULT_SCENE || 'sunflower');
 
   // ---------- helpers ----------
   function rng(seed) {
@@ -647,7 +647,8 @@
         const k=(yy*cols+xx)*4;
         if(Math.max(data[k],data[k+1],data[k+2])>14){hidden=true;break;}
       }
-      if(hidden)continue;
+      if(flower==='clouds') { if(y>h*.35 || (Math.abs(x-w*.72)<w*.06 && Math.abs(y-h*.19)<h*.06))continue; }
+      else if(hidden)continue;
       const pulse=.5+.5*Math.sin(skyTime*(.6+star.size)+star.phase);
       sctx.globalAlpha=.30+pulse*.48;
       sctx.fillStyle=star.size>.75?'#e7d9bb':'#c8d5e6';
@@ -655,6 +656,73 @@
       sctx.fillText(star.size>.9?'+':'.',x,y);
     }
     sctx.restore();
+  }
+
+  // Full-viewport cloud landscape, drawn into the same ASCII sampling buffer.
+  const cloudRandom=rng(1947);
+  const cloudBanks=Array.from({length:8},(_,layer)=>Array.from({length:26},(_,i)=>({
+    x:i/25, radius:.035+cloudRandom()*.045, phase:cloudRandom()*6.28,
+    lift:cloudRandom(), layer
+  })));
+  const CLOUD_COLORS=[
+    {lit:'#b9cfdf',mid:'#526b93',dark:'#141b36',sky:'#0b1226',moon:'#f0e7cd'},
+    {lit:'#f8d1b7',mid:'#b07e9c',dark:'#403953',sky:'#302738',moon:'#ffe5be'},
+    {lit:'#d5d5ee',mid:'#827faa',dark:'#282a4a',sky:'#18172d',moon:'#f1e9ff'}
+  ];
+  function drawCloudSea(g) {
+    const w=cols,h=rows,c=CLOUD_COLORS[palette], time=T;
+    const horizon=h*.39;
+    g.save();
+    const sky=g.createLinearGradient(0,0,0,h*.65);
+    sky.addColorStop(0,'#000');sky.addColorStop(.65,c.sky);sky.addColorStop(1,c.mid);
+    g.fillStyle=sky;g.fillRect(0,0,w,h);
+    // Moon remains circular after character-cell aspect correction.
+    const mx=w*.72,my=h*.19, mr=Math.min(w*cellW,h*cellH)*.035/cellW;
+    g.save();g.translate(mx,my);g.scale(1,cellW/cellH);
+    const halo=g.createRadialGradient(0,0,mr*.5,0,0,mr*3.5);
+    halo.addColorStop(0,'rgba(178,195,230,.18)');halo.addColorStop(1,'rgba(178,195,230,0)');
+    g.fillStyle=halo;g.beginPath();g.arc(0,0,mr*3.5,0,Math.PI*2);g.fill();
+    g.fillStyle=c.moon;g.beginPath();g.arc(0,0,mr,0,Math.PI*2);g.fill();
+    g.fillStyle='rgba(105,117,150,.18)';
+    for(const [x,y,r] of [[-.3,-.2,.18],[.2,.4,.25],[.35,-.3,.12]]){
+      g.beginPath();g.arc(x*mr,y*mr,r*mr,0,Math.PI*2);g.fill();
+    }
+    g.restore();
+    function mountain(x,base,height,width,tint) {
+      g.fillStyle=tint;g.beginPath();g.moveTo(x-width,base);
+      g.lineTo(x-width*.42,base-height*.49);g.lineTo(x-width*.19,base-height*.63);
+      g.lineTo(x,base-height);g.lineTo(x+width*.2,base-height*.68);
+      g.lineTo(x+width*.42,base-height*.45);g.lineTo(x+width,base);g.closePath();g.fill();
+      g.fillStyle='rgba(128,149,180,.12)';g.beginPath();g.moveTo(x,base-height);
+      g.lineTo(x+width*.14,base-height*.35);g.lineTo(x+width*.72,base);g.lineTo(x+width,base);g.closePath();g.fill();
+    }
+    mountain(w*.28,h*.49,h*.2,w*.16,'#182137');
+    mountain(w*.54,h*.46,h*.12,w*.12,'#222d45');
+    for(let layer=0;layer<8;layer++) {
+      const depth=layer/7;
+      const baseline=h*(.46+depth*.59);
+      const rh=h*(.022+depth*.085);
+      // Undulating banks hide their lower edges under the next, closer layer.
+      for(const p of cloudBanks[layer]) {
+        const drift=time*(.0007+depth*.0022);
+        const xx=((p.x+drift)%1.24-.12)*w;
+        const yy=baseline+Math.sin(p.x*11+time*.12+layer)*rh*.55;
+        const rx=w*p.radius*(.65+depth*.75);
+        const ry=rh*(.65+p.lift*.6)*(1+Math.sin(time*.23+p.phase)*.08);
+        g.save();g.translate(xx,yy);g.scale(rx,ry);
+        const puff=g.createRadialGradient(-.24,-.5,.05,0,.1,1.3);
+        puff.addColorStop(0,mix(c.lit,c.mid,depth*.12));
+        puff.addColorStop(.4,mix(c.lit,c.mid,.25));
+        puff.addColorStop(.72,c.mid);puff.addColorStop(1,c.dark);
+        g.fillStyle=puff;g.beginPath();g.arc(0,0,1,0,Math.PI*2);g.fill();g.restore();
+      }
+      if(layer===2)mountain(w*.82,h*.72,h*.29,w*.16,'#101727');
+      if(layer===4)mountain(w*.12,h*.89,h*.23,w*.19,'#0b1220');
+    }
+    // Soft vignette keeps the moonlit ridges central.
+    const vignette=g.createRadialGradient(w*.5,h*.55,w*.15,w*.5,h*.55,w*.7);
+    vignette.addColorStop(0,'rgba(0,0,0,0)');vignette.addColorStop(1,'rgba(0,0,0,.35)');
+    g.fillStyle=vignette;g.fillRect(0,0,w,h);g.restore();
   }
 
   function render(S, pal) {
@@ -666,7 +734,8 @@
     octx.fillRect(0, 0, cols, rows);
     octx.setTransform(sx, 0, 0, sx / aspect, (cols - WORLD_W * sx) / 2, (rows - (WORLD_H * sx) / aspect) / 2);
 
-    if (flower === 'sunflower') drawSunScene(octx, S, pal);
+    if (flower === 'clouds') { octx.setTransform(1,0,0,1,0,0); drawCloudSea(octx); }
+    else if (flower === 'sunflower') drawSunScene(octx, S, pal);
     else if (flower === 'tulip') drawTulipScene(octx,S,pal);
     else drawScene(octx, S, pal);
 
@@ -716,7 +785,7 @@
     last = now;
     T = (now - t0) / 1000;
     skyTime = now / 1000;
-    render(scenes[flower], ({sunflower:SUN_PALETTES,lily:PALETTES,tulip:TULIP_PALETTES}[flower])[palette]);
+    render(scenes[flower], ({sunflower:SUN_PALETTES,lily:PALETTES,tulip:TULIP_PALETTES,clouds:CLOUD_COLORS}[flower])[palette]);
   }
 
   const replay = () => { t0 = performance.now(); };
